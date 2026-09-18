@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Network Config Diff Tool</title>
+  <!-- Tailwind CSS для быстрой верстки -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Загрузчик Monaco Editor -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js"></script>
+  <style>
+    /* Отключение зеленых/красных заливок при выключении Diff */
+    .no-diff .monaco-editor .line-insert,
+    .no-diff .monaco-editor .line-delete,
+    .no-diff .monaco-editor .char-insert,
+    .no-diff .monaco-editor .char-delete {
+      background-color: transparent !important;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col font-sans">
+
+  <!-- ШАПКА И ПАНЕЛЬ УПРАВЛЕНИЯ -->
+  <header class="bg-gray-800 border-b border-gray-700 p-3 flex justify-between items-center">
+    <h1 class="font-bold text-lg text-blue-400">⚡ ConfigCompare K8s</h1>
+    <div class="flex items-center space-x-4">
+      <label class="flex items-center space-x-2 text-sm cursor-pointer">
+        <input type="checkbox" id="syncDevice" checked class="rounded bg-gray-700 border-gray-600 text-blue-500">
+        <span>Синхронизировать устройство</span>
+      </label>
+    </div>
+  </header>
+
+  <!-- СЕКЦИЯ СЕЛЕКТОРОВ (НАД ПАНЕЛЯМИ) -->
+  <div class="grid grid-cols-2 gap-2 p-2 bg-gray-850 border-b border-gray-700">
+
+    <!-- Левая панель управление -->
+    <div class="flex items-center space-x-2 bg-gray-800 p-2 rounded">
+      <input type="date" id="dateLeft" value="2026-09-15" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600">
+      <select id="typeLeft" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600"><option>ЦОД</option><option>ЛВС</option></select>
+      <select id="regionLeft" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600"><option>Рига</option></select>
+      <select id="deviceLeft" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600 flex-1">
+        <option value="RIGA-DCKOM-LB-01">RIGA-DCKOM-LB-01</option>
+        <option value="RIGA-DCKOM-LB-02">RIGA-DCKOM-LB-02</option>
+      </select>
+    </div>
+
+    <!-- Правая панель управление -->
+    <div class="flex items-center space-x-2 bg-gray-800 p-2 rounded">
+      <input type="date" id="dateRight" value="2026-09-18" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600">
+      <select id="typeRight" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600"><option>ЦОД</option><option>ЛВС</option></select>
+      <select id="regionRight" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600"><option>Рига</option></select>
+      <select id="deviceRight" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600 flex-1">
+        <option value="RIGA-DCKOM-LB-01">RIGA-DCKOM-LB-01</option>
+        <option value="RIGA-DCKOM-LB-02">RIGA-DCKOM-LB-02</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ОБЛАСТЬ ПРОСМОТРА СРАВНЕНИЯ (MONACO DIFF EDITOR) -->
+  <div id="editor-container" class="flex-1 w-full relative"></div>
+
+  <!-- ПОДВАЛ И КНОПКИ ДЕЙСТВИЙ -->
+  <footer class="bg-gray-800 border-t border-gray-700 p-2 flex justify-between items-center text-xs">
+
+    <!-- Левые кнопки -->
+    <div class="flex space-x-2">
+      <button onclick="downloadConfig('left')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">
+        📥 Скачать L (15.09)
+      </button>
+      <button onclick="toggleHighlight('left')" class="bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded border border-gray-600">
+        💡 Переключить подсветку L
+      </button>
+    </div>
+
+    <!-- Центр -->
+    <button onclick="downloadDiff()" class="bg-red-600 hover:bg-red-500 text-white px-4 py-1.5 rounded font-bold shadow">
+      🔥 Скачать Diff (.patch)
+    </button>
+
+    <!-- Правые кнопки -->
+    <div class="flex space-x-2">
+      <button onclick="toggleHighlight('right')" class="bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded border border-gray-600">
+        💡 Переключить подсветку R
+      </button>
+      <button onclick="downloadConfig('right')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">
+        📥 Скачать R (18.09)
+      </button>
+    </div>
+  </footer>
+
+  <!-- СКРИПТ ИНИЦИАЛИЗАЦИИ РЕДАКТОРА -->
+  <script>
+    let diffEditor;
+
+    // Демонстрационные данные конфигураций
+    const sampleConfigLeft = `hostname RIGA-DCKOM-LB-01\n!\ninterface GigabitEthernet0/1\n description Link to Core\n ip address 10.10.1.1 255.255.255.0\n no shutdown\n!\nrouter bgp 65001\n neighbor 10.10.1.2 remote-as 65001\n`;
+    const sampleConfigRight = `hostname RIGA-DCKOM-LB-01\n!\ninterface GigabitEthernet0/1\n description Link to Core (UPDATED)\n ip address 10.10.1.1 255.255.255.0\n no shutdown\n!\ninterface GigabitEthernet0/2\n description New DMZ Link\n ip address 172.16.0.1 255.255.255.0\n!\nrouter bgp 65001\n neighbor 10.10.1.2 remote-as 65001\n neighbor 10.10.1.3 remote-as 65002\n`;
+
+    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } });
+
+    require(['vs/editor/editor.main'], function () {
+      // Создаем Diff Editor
+      diffEditor = monaco.editor.createDiffEditor(document.getElementById('editor-container'), {
+        theme: 'vs-dark',
+        automaticLayout: true,
+        readOnly: true,
+        renderSideBySide: true, // Две панели
+        enableSplitViewResizing: true
+      });
+
+      // Загружаем тексты
+      diffEditor.setModel({
+        original: monaco.editor.createModel(sampleConfigLeft, 'text/plain'),
+        modified: monaco.editor.createModel(sampleConfigRight, 'text/plain')
+      });
+    });
+
+    // Функция переключения подсветки (Включить / Выключить заливку красным/зеленым)
+    function toggleHighlight(side) {
+      const container = document.getElementById('editor-container');
+      container.classList.toggle('no-diff');
+    }
+
+    // Автоматическая подстановка устройства в правую панель при выборе в левой
+    document.getElementById('deviceLeft').addEventListener('change', (e) => {
+      if (document.getElementById('syncDevice').checked) {
+        document.getElementById('deviceRight').value = e.target.value;
+        // Здесь же делаем запрос к API: "Дай последнюю доступную дату для e.target.value"
+        console.log("Автоматический поиск последней даты для устройства:", e.target.value);
+      }
+    });
+
+    function downloadConfig(side) { alert(`Скачивание файла ${side}...`); }
+    function downloadDiff() { alert('Генерация и скачивание .patch файла...'); }
+  </script>
+</body>
+</html>
