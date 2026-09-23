@@ -1,137 +1,626 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" class="dark">
 <head>
   <meta charset="UTF-8">
   <title>Network Config Diff Tool</title>
-  <!-- Tailwind CSS для быстрой верстки -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Загрузчик Monaco Editor -->
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js"></script>
   <style>
-    /* Отключение зеленых/красных заливок при выключении Diff */
-    .no-diff .monaco-editor .line-insert,
-    .no-diff .monaco-editor .line-delete,
-    .no-diff .monaco-editor .char-insert,
-    .no-diff .monaco-editor .char-delete {
-      background-color: transparent !important;
-    }
+  #editor-container.no-diff-left .editor.original .monaco-editor .line-insert,
+  #editor-container.no-diff-left .editor.original .monaco-editor .line-delete,
+  #editor-container.no-diff-left .editor.original .monaco-editor .char-insert,
+  #editor-container.no-diff-left .editor.original .monaco-editor .char-delete,
+  #editor-container.no-diff-left .editor.original .monaco-editor .view-overlays .line-insert,
+  #editor-container.no-diff-left .editor.original .monaco-editor .view-overlays .line-delete {
+    background-color: transparent !important;
+    background: transparent !important;
+  }
+
+  /* Отключение фона диффов на правой (Modified) панели */
+  #editor-container.no-diff-right .editor.modified .monaco-editor .line-insert,
+  #editor-container.no-diff-right .editor.modified .monaco-editor .line-delete,
+  #editor-container.no-diff-right .editor.modified .monaco-editor .char-insert,
+  #editor-container.no-diff-right .editor.modified .monaco-editor .char-delete,
+  #editor-container.no-diff-right .editor.modified .monaco-editor .view-overlays .line-insert,
+  #editor-container.no-diff-right .editor.modified .monaco-editor .view-overlays .line-delete {
+    background-color: transparent !important;
+    background: transparent !important;
+  }
+    .monaco-editor-overlaymessage {
+    display: none !important;
+  }
+  .monaco-editor .cursor {
+  display: none !important;
+}
+  #editor-container .monaco-diff-editor .monaco-editor .empty-editor-placeholder {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-style: italic;
+    color: #9ca3af; /* Серый Tailwind gray-400 */
+    font-size: 14px;
+    pointer-events: none;
+    text-align: center;
+    z-index: 10;
+  }
+
+  #editor-container.hide-cursor .monaco-editor .cursor {
+  display: none !important;
+}
+
   </style>
 </head>
-<body class="bg-gray-900 text-gray-100 h-screen flex flex-col font-sans">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 h-screen flex flex-col font-sans transition-colors duration-200 overflow-hidden">
 
-  <!-- ШАПКА И ПАНЕЛЬ УПРАВЛЕНИЯ -->
-  <header class="bg-gray-800 border-b border-gray-700 p-3 flex justify-between items-center">
-    <h1 class="font-bold text-lg text-blue-400">⚡ ConfigCompare K8s</h1>
-    <div class="flex items-center space-x-4">
-      <label class="flex items-center space-x-2 text-sm cursor-pointer">
-        <input type="checkbox" id="syncDevice" checked class="rounded bg-gray-700 border-gray-600 text-blue-500">
-        <span>Синхронизировать устройство</span>
+
+  <!-- ШАПКА -->
+  <header class="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-4 py-2 flex justify-between items-center z-10">
+    <h1 class="font-bold text-lg text-blue-600 dark:text-blue-400">⚡ WaybackConfig v0.14</h1>
+<!-- кнопка синхронизации-->
+        <div class="flex items-center space-x-5">
+      <label class="p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium flex items-center space-x-2 cursor-pointer select-none transition-colors border border-transparent">
+        <input type="checkbox" id="syncPanels" checked onchange="updateSyncIcon()" checked class="rounded border-gray-400 text-blue-600 focus:ring-blue-500 w-4 h-4">
+        <span id="syncIcon">🔗</span>
+        <span class="font-medium">Синхронизация панелей</span>
       </label>
+
+
+
+<!--      <label class="p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium flex items-center space-x-2 cursor-pointer select-none transition-colors border border-transparent">
+  <input type="checkbox" id="syncPanels" checked class="rounded border-gray-400 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+  <span>🔗 Синхронизация панелей</span>
+</label>-->
+
+<!-- кнопка свитчинга-->
+    <div class="flex items-center space-x-5">
+  <!-- Добавленная кнопка "Switch panels" -->
+  <button onclick="switchPanels()" class="p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium flex items-center space-x-1 transition-colors">
+    <span>🔄 Поменять местами</span>
+  </button>
+<!-- кнопка т-->
+      <button onclick="toggleTheme()" class="p-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm flex items-center space-x-1">
+        <span id="themeIcon">☀️ День</span>
+      </button>
     </div>
   </header>
 
-  <!-- СЕКЦИЯ СЕЛЕКТОРОВ (НАД ПАНЕЛЯМИ) -->
-  <div class="grid grid-cols-2 gap-2 p-2 bg-gray-850 border-b border-gray-700">
+  <!-- СЕКЦИЯ СЕЛЕКТОРОВ (БЕЗ РАМОК, ЧЕТКО 50% НА 50%) -->
+  <div class="grid grid-cols-2 gap-2 p-2 bg-gray-850">
 
-    <!-- Левая панель управление -->
-    <div class="flex items-center space-x-2 bg-gray-800 p-2 rounded">
-      <input type="date" id="dateLeft" value="2026-09-15" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600">
-      <select id="typeLeft" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600"><option>ЦОД</option><option>ЛВС</option></select>
-      <select id="regionLeft" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600"><option>Рига</option></select>
-      <select id="deviceLeft" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600 flex-1">
-        <option value="RIGA-DCKOM-LB-01">RIGA-DCKOM-LB-01</option>
-        <option value="RIGA-DCKOM-LB-02">RIGA-DCKOM-LB-02</option>
-      </select>
-    </div>
 
-    <!-- Правая панель управление -->
-    <div class="flex items-center space-x-2 bg-gray-800 p-2 rounded">
-      <input type="date" id="dateRight" value="2026-09-18" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600">
-      <select id="typeRight" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600"><option>ЦОД</option><option>ЛВС</option></select>
-      <select id="regionRight" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600"><option>Рига</option></select>
-      <select id="deviceRight" class="bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600 flex-1">
-        <option value="RIGA-DCKOM-LB-01">RIGA-DCKOM-LB-01</option>
-        <option value="RIGA-DCKOM-LB-02">RIGA-DCKOM-LB-02</option>
+    <!-- Левая панель (ровно 50% ширины) -->
+<div class="flex items-center space-x-2">
+    <input type="date" id="dateLeft" onchange="onDeviceChange('left')" class="w-36 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
+    <select id="typeLeft" onchange="onTypeOrRegionChange('left')" class="w-20 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
+      <option value="" disabled selected>УЭС</option>
+      <option value="ЦОД">ЦОД</option>
+      <option value="ЛВС">ЛВС</option></select>
+    <select id="regionLeft" onchange="onTypeOrRegionChange('left')" class="w-28 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
+        <option value="" disabled selected>МРФ</option>
       </select>
+      <select id="deviceLeft" onchange="onDeviceChange('left')" class="w-72 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none truncate">
+      <option value="" disabled selected>Платформа</option>
+      </select>
+
+
+
+    <select id="fileLeft" onchange="onFileChange('left')" class="w-72 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none truncate">
+      <option value="" disabled selected>Конфигурация</option></select>
+
+
+  </div>
+
+    <!-- Правая панель (ровно 50% ширины) -->
+  <div class="flex items-center space-x-2">
+      <input type="date" id="dateRight" onchange="onDeviceChange('right')" class="w-36 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
+      <select id="typeRight" onchange="onTypeOrRegionChange('right')" class="w-20 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
+      <option value="" disabled selected>УЭС</option>
+      <option value="ЦОД">ЦОД</option>
+      <option value="ЛВС">ЛВС</option></select>
+      <select id="regionRight" onchange="onTypeOrRegionChange('right')" class="w-28 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
+    <option value="" disabled selected>МРФ</option>
+    </select>
+            <select id="deviceRight" onchange="onDeviceChange('right')" class="w-72 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none truncate">
+        <option value="" disabled selected>Платформа</option>
+        </select>
+
+      <select id="fileRight" onchange="onFileChange('right')" class="w-72 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none truncate">
+        <option value="" disabled selected>Конфигурация</option></select>
+
     </div>
   </div>
 
-  <!-- ОБЛАСТЬ ПРОСМОТРА СРАВНЕНИЯ (MONACO DIFF EDITOR) -->
-  <div id="editor-container" class="flex-1 w-full relative"></div>
+  <!-- ОБЛАСТЬ MONACO EDITOR -->
+  <div id="editor-container" class="flex-1 w-full h-full overflow-hidden hide-cursor"></div>
 
-  <!-- ПОДВАЛ И КНОПКИ ДЕЙСТВИЙ -->
-  <footer class="bg-gray-800 border-t border-gray-700 p-2 flex justify-between items-center text-xs">
+  <!-- ПОДВАЛ (3-КОЛОНОЧНАЯ СЕТКА) -->
+  <footer class="bg-white dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 p-2 grid grid-cols-3 items-center text-xs">
 
-    <!-- Левые кнопки -->
-    <div class="flex space-x-2">
-      <button onclick="downloadConfig('left')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">
-        📥 Скачать L (15.09)
-      </button>
-      <button onclick="toggleHighlight('left')" class="bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded border border-gray-600">
-        💡 Переключить подсветку L
+    <div class="flex space-x-2 justify-start">
+      <button onclick="downloadConfig('left')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">📥 Скачать L</button>
+     <button onclick="toggleHighlight('left')" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600">
+      <span id="highlightIconLeft">🔌 Подсветка L</span>
       </button>
     </div>
 
-    <!-- Центр -->
-    <button onclick="downloadDiff()" class="bg-red-600 hover:bg-red-500 text-white px-4 py-1.5 rounded font-bold shadow">
-      🔥 Скачать Diff (.patch)
-    </button>
+    <div class="flex justify-center">
+      <button onclick="downloadDiff()" class="bg-red-600 hover:bg-red-500 text-white px-8 py-1.5 rounded font-bold shadow">🔥 Скачать Diff</button>
+    </div>
+<!--   <button onclick="downloadDiff()" class="bg-red-600 hover:bg-red-500 text-white px-4 py-1.5 rounded font-bold shadow">-->
 
-    <!-- Правые кнопки -->
-    <div class="flex space-x-2">
-      <button onclick="toggleHighlight('right')" class="bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded border border-gray-600">
-        💡 Переключить подсветку R
-      </button>
-      <button onclick="downloadConfig('right')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">
-        📥 Скачать R (18.09)
-      </button>
+
+    <div class="flex space-x-2 justify-end">
+    <button onclick="toggleHighlight('right')" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600">
+      <span id="highlightIconRight">🔌 Подсветка R</span>
+    </button>
+      <button onclick="downloadConfig('right')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">📥 Скачать R</button>
     </div>
   </footer>
 
-  <!-- СКРИПТ ИНИЦИАЛИЗАЦИИ РЕДАКТОРА -->
-  <script>
-    let diffEditor;
+<script>
 
-    // Демонстрационные данные конфигураций
-    const sampleConfigLeft = `hostname RIGA-DCKOM-LB-01\n!\ninterface GigabitEthernet0/1\n description Link to Core\n ip address 10.10.1.1 255.255.255.0\n no shutdown\n!\nrouter bgp 65001\n neighbor 10.10.1.2 remote-as 65001\n`;
-    const sampleConfigRight = `hostname RIGA-DCKOM-LB-01\n!\ninterface GigabitEthernet0/1\n description Link to Core (UPDATED)\n ip address 10.10.1.1 255.255.255.0\n no shutdown\n!\ninterface GigabitEthernet0/2\n description New DMZ Link\n ip address 172.16.0.1 255.255.255.0\n!\nrouter bgp 65001\n neighbor 10.10.1.2 remote-as 65001\n neighbor 10.10.1.3 remote-as 65002\n`;
+let diffEditor;
+let currentTheme = 'vs-dark';
 
-    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } });
+<!--const MONTH_NAMES = [-->
+<!--  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",-->
+<!--  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"-->
+<!--];-->
 
-    require(['vs/editor/editor.main'], function () {
-      // Создаем Diff Editor
-      diffEditor = monaco.editor.createDiffEditor(document.getElementById('editor-container'), {
-        theme: 'vs-dark',
-        automaticLayout: true,
-        readOnly: true,
-        renderSideBySide: true, // Две панели
-        enableSplitViewResizing: true
+require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } });
+
+require(['vs/editor/editor.main'], function () {
+  diffEditor = monaco.editor.createDiffEditor(document.getElementById('editor-container'), {
+    theme: currentTheme,
+    automaticLayout: true,
+    readOnly: true,
+    renderSideBySide: true,
+    splitViewDefaultRatio: 0.5,
+    originalEditable: false,
+    renderOverviewRuler: false,
+    overviewRulerLanes: 0,
+    glyphMargin: false,
+    lineNumbers: 'off',
+    renderLineHighlight: 'none',
+    scrollbar: {
+      vertical: 'visible',
+      verticalScrollbarSize: 10,
+      useShadows: false
+    }
+  });
+
+  diffEditor.setModel({
+    original: monaco.editor.createModel('', 'text/plain'),
+    modified: monaco.editor.createModel('', 'text/plain')
+  });
+
+  const placeholderText = "Выберите устройство и файл из списка выше для загрузки конфигурации";
+
+  const editors = [diffEditor.getOriginalEditor(), diffEditor.getModifiedEditor()];
+  editors.forEach(editor => {
+    const container = editor.getDomNode();
+    if (container) {
+      const placeholderDiv = document.createElement('div');
+      placeholderDiv.className = 'empty-editor-placeholder';
+      placeholderDiv.innerText = placeholderText;
+      container.appendChild(placeholderDiv);
+
+      editor.onDidChangeModelContent(() => {
+        if (editor.getValue().trim() === '') {
+          placeholderDiv.style.display = 'block';
+        } else {
+          placeholderDiv.style.display = 'none';
+        }
       });
+    }
+  });
+});
 
-      // Загружаем тексты
-      diffEditor.setModel({
-        original: monaco.editor.createModel(sampleConfigLeft, 'text/plain'),
-        modified: monaco.editor.createModel(sampleConfigRight, 'text/plain')
-      });
-    });
+// function getConfigUrl(side) {
+//   const isLeft = side === 'left';
+//   const dateVal = document.getElementById(isLeft ? 'dateLeft' : 'dateRight').value;
+//   const typeVal = document.getElementById(isLeft ? 'typeLeft' : 'typeRight').value;
+//   const regionVal = document.getElementById(isLeft ? 'regionLeft' : 'regionRight').value;
+//   const deviceVal = document.getElementById(isLeft ? 'deviceLeft' : 'deviceRight').value;
+//   const fileVal = document.getElementById(isLeft ? 'fileLeft' : 'fileRight').value;
+//
+//   if (!dateVal || !deviceVal || !fileVal) return null;
+//
+//   const [year, monthStr, dayStr] = dateVal.split('-');
+//   const monthName = MONTH_NAMES[parseInt(monthStr, 10) - 1];
+//   const day = parseInt(dayStr, 10);
+//
+//   const filePath = `/archive/${year}/${monthName}/${dayStr}/${typeVal}/${regionVal}/${deviceVal}/${fileVal}`;
+//   return `/api/config?path=${encodeURIComponent(filePath)}`;
+// }
 
-    // Функция переключения подсветки (Включить / Выключить заливку красным/зеленым)
-    function toggleHighlight(side) {
-      const container = document.getElementById('editor-container');
-      container.classList.toggle('no-diff');
+async function loadConfigFromBackend(side) {
+  const url = getConfigUrl(side);
+  if (!url) return;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Ошибка ${response.status}: Конфигурация не найдена`);
+    }
+    const configText = await response.text();
+    updateEditorModel(side, configText);
+  } catch (error) {
+    console.error(`Ошибка загрузки [${side}]:`, error);
+    updateEditorModel(side, `! Ошибка загрузки файла конфигурации\n! ${error.message}`);
+  }
+}
+
+
+
+function updateEditorModel(side, text) {
+  const model = diffEditor.getModel();
+
+  if (side === 'left') {
+    model.original.setValue(text);
+  } else {
+    model.modified.setValue(text);
+  }
+
+  diffEditor.updateOptions({
+    lineNumbers: 'on',
+    renderLineHighlight: 'all'
+  });
+
+  document.getElementById('editor-container').classList.remove('hide-cursor');
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const icon = document.getElementById('themeIcon');
+
+  if (html.classList.contains('dark')) {
+    html.classList.remove('dark');
+    icon.textContent = "🌙 Ночь";
+    currentTheme = 'vs';
+  } else {
+    html.classList.add('dark');
+    icon.textContent = "☀️ День";
+    currentTheme = 'vs-dark';
+  }
+
+  monaco.editor.setTheme(currentTheme);
+}
+
+let isHighlightLeft = true;
+let isHighlightRight = true;
+
+function toggleHighlight(side) {
+  const container = document.getElementById('editor-container');
+
+  if (side === 'left') {
+    isHighlightLeft = !isHighlightLeft;
+    container.classList.toggle('no-diff-left', !isHighlightLeft);
+    const iconEl = document.getElementById('highlightIconLeft');
+    if (iconEl) iconEl.textContent = `${isHighlightLeft ? '🔌' : '💡'} Подсветка L`;
+  } else if (side === 'right') {
+    isHighlightRight = !isHighlightRight;
+    container.classList.toggle('no-diff-right', !isHighlightRight);
+    const iconEl = document.getElementById('highlightIconRight');
+    if (iconEl) iconEl.textContent = `${isHighlightRight ? '🔌' : '💡'} Подсветка R`;
+  }
+}
+
+function switchPanels() {
+  const fields = ['date', 'type', 'region', 'device', 'file'];
+
+  fields.forEach(field => {
+    const leftEl = document.getElementById(field + 'Left');
+    const rightEl = document.getElementById(field + 'Right');
+
+    if (leftEl && rightEl) {
+      const tempValue = leftEl.value;
+      leftEl.value = rightEl.value;
+      rightEl.value = tempValue;
+    }
+  });
+
+  if (isHighlightLeft !== isHighlightRight) {
+    toggleHighlight('left');
+    toggleHighlight('right');
+  }
+
+  if (diffEditor) {
+    const model = diffEditor.getModel();
+    if (model) {
+      const leftValue = model.original.getValue();
+      const rightValue = model.modified.getValue();
+
+      model.original.setValue(rightValue);
+      model.modified.setValue(leftValue);
+    }
+  }
+}
+
+function updateSyncIcon() {
+  const isSync = document.getElementById('syncPanels').checked;
+  const iconEl = document.getElementById('syncIcon');
+  iconEl.textContent = isSync ? '🔗' : '⛓️‍💥';
+}
+
+function downloadConfig(side) { alert(`Скачивание конфига для ${side}`); }
+function downloadDiff() { alert('Скачивание diff файла...'); }
+
+window.addEventListener('resize', () => {
+  diffEditor.layout();
+});
+
+function getConfigUrl(side) {
+  const isLeft = side === 'left';
+  const dateVal = document.getElementById(isLeft ? 'dateLeft' : 'dateRight').value;
+  const typeVal = document.getElementById(isLeft ? 'typeLeft' : 'typeRight').value;
+  const regionVal = document.getElementById(isLeft ? 'regionLeft' : 'regionRight').value;
+  const deviceVal = document.getElementById(isLeft ? 'deviceLeft' : 'deviceRight').value;
+  const fileVal = document.getElementById(isLeft ? 'fileLeft' : 'fileRight').value;
+
+  if (!dateVal || !deviceVal || !fileVal) return null;
+
+  const [year, monthStr, dayStr] = dateVal.split('-');
+<!--  const monthName = MONTH_NAMES[parseInt(monthStr, 10) - 1];-->
+
+  const filePath = `/archive/${year}/${monthStr}/${dayStr}/${typeVal}/${regionVal}/${deviceVal}/${fileVal}`;
+  return `/api/config?path=${encodeURIComponent(filePath)}`;
+}
+
+async function loadConfigFromBackend(side) {
+  const url = getConfigUrl(side);
+  if (!url) return;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Ошибка ${response.status}: Конфигурация не найдена`);
+    }
+    const configText = await response.text();
+    updateEditorModel(side, configText);
+  } catch (error) {
+    console.error(`Ошибка загрузки [${side}]:`, error);
+    updateEditorModel(side, `! Ошибка загрузки файла конфигурации\n! ${error.message}`);
+  }
+}
+
+// Запрос доступных файлов конфигурации для выбранного устройства
+
+
+// Вызывается при изменении любого параметра устройства (дата, тип, регион, устройство)
+// Получение сегодняшней даты в формате YYYY-MM-DD
+function getTodayDateString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+async function onDeviceChange(sourceSide) {
+  const isSync = document.getElementById('syncPanels').checked;
+  const targetSide = sourceSide === 'left' ? 'right' : 'left';
+
+  const sourceDateEl = document.getElementById(sourceSide === 'left' ? 'dateLeft' : 'dateRight');
+  const targetDateEl = document.getElementById(targetSide === 'left' ? 'dateLeft' : 'dateRight');
+
+  // 1. Ставим сегодняшнее число ТОЛЬКО в ту панель, где пользователь делает выбор (если там пусто)
+  if (!sourceDateEl.value) {
+    sourceDateEl.value = getTodayDateString();
+  }
+
+  if (isSync) {
+    // Если во второй панели дата всё ещё не выбрана — по умолчанию задаем ей сегодня
+    if (!targetDateEl.value) {
+      targetDateEl.value = getTodayDateString();
     }
 
-    // Автоматическая подстановка устройства в правую панель при выборе в левой
-    document.getElementById('deviceLeft').addEventListener('change', (e) => {
-      if (document.getElementById('syncDevice').checked) {
-        document.getElementById('deviceRight').value = e.target.value;
-        // Здесь же делаем запрос к API: "Дай последнюю доступную дату для e.target.value"
-        console.log("Автоматический поиск последней даты для устройства:", e.target.value);
-      }
+    // Синхронизируем настройки устройства (Тип, Регион, Устройство)
+    const fields = ['type', 'region', 'device'];
+    fields.forEach(field => {
+      const sourceVal = document.getElementById(field + (sourceSide === 'left' ? 'Left' : 'Right')).value;
+      document.getElementById(field + (targetSide === 'left' ? 'Left' : 'Right')).value = sourceVal;
     });
 
-    function downloadConfig(side) { alert(`Скачивание файла ${side}...`); }
-    function downloadDiff() { alert('Генерация и скачивание .patch файла...'); }
-  </script>
+    // 2. Считываем списки файлов (каждая панель смотрит свою дату)
+    await fetchFileList('left');
+    await fetchFileList('right');
+
+    // 3. Автоматически выбираем тот же самый файл во второй панели
+    const sourceFileSelect = document.getElementById(sourceSide === 'left' ? 'fileLeft' : 'fileRight');
+    const targetFileSelect = document.getElementById(targetSide === 'left' ? 'fileLeft' : 'fileRight');
+
+    if (sourceFileSelect.value) {
+      const hasOption = Array.from(targetFileSelect.options).some(opt => opt.value === sourceFileSelect.value);
+      if (hasOption) {
+        targetFileSelect.value = sourceFileSelect.value;
+      }
+    }
+
+    // 4. Загружаем оба файла в редактор
+    loadConfigFromBackend('left');
+    loadConfigFromBackend('right');
+  } else {
+    await fetchFileList(sourceSide);
+    loadConfigFromBackend(sourceSide);
+  }
+}
+async function fetchFileList(side) {
+  const isLeft = side === 'left';
+  const dateVal = document.getElementById(isLeft ? 'dateLeft' : 'dateRight').value;
+  const typeVal = document.getElementById(isLeft ? 'typeLeft' : 'typeRight').value;
+  const regionVal = document.getElementById(isLeft ? 'regionLeft' : 'regionRight').value;
+  const deviceVal = document.getElementById(isLeft ? 'deviceLeft' : 'deviceRight').value;
+  const fileSelect = document.getElementById(isLeft ? 'fileLeft' : 'fileRight');
+
+  // Выводим выбранные значения для проверки
+  console.log(`--- [DEBUG ${side.toUpperCase()}] Сбор параметров ---`, {
+    dateVal, typeVal, regionVal, deviceVal
+  });
+
+  if (!dateVal || !regionVal || !deviceVal) {
+    console.warn(`[DEBUG ${side.toUpperCase()}] Пропущены обязательные поля!`);
+    fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
+    return;
+  }
+
+  const [year, monthStr, dayStr] = dateVal.split('-');
+<!--  const monthName = MONTH_NAMES[parseInt(monthStr, 10) - 1];-->
+<!--  const day = parseInt(dayStr, 10);-->
+
+  // Формируем итоговый путь
+  const dirPath = `/archive/${year}/${monthStr}/${dayStr}/${typeVal}/${regionVal}/${deviceVal}`;
+  const requestUrl = `/api/devices?path=${encodeURIComponent(dirPath)}`;
+
+  console.log(`[DEBUG ${side.toUpperCase()}] Итоговый путь к папке:`, dirPath);
+  console.log(`[DEBUG ${side.toUpperCase()}] Итоговый URL запроса:`, requestUrl);
+
+  try {
+    const response = await fetch(requestUrl);
+    console.log(`[DEBUG ${side.toUpperCase()}] Ответ сервера (HTTP Status):`, response.status);
+
+    if (!response.ok) {
+      console.error(`[DEBUG ${side.toUpperCase()}] Ошибка от сервера: Status ${response.status}`);
+      fileSelect.innerHTML = `<option value="" disabled selected>Ошибка HTTP ${response.status}</option>`;
+      return;
+    }
+
+    const files = await response.json();
+    console.log(`[DEBUG ${side.toUpperCase()}] Полученные файлы от бэкенда:`, files);
+
+    const currentValue = fileSelect.value;
+    fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
+
+    if (!Array.isArray(files) || files.length === 0) {
+      console.warn(`[DEBUG ${side.toUpperCase()}] Список файлов пуст!`);
+      fileSelect.innerHTML = '<option value="" disabled selected>Нет данных</option>';
+      return;
+    }
+
+    files.forEach(file => {
+      const opt = document.createElement('option');
+      opt.value = file;
+      opt.textContent = file;
+      fileSelect.appendChild(opt);
+    });
+
+    if (files.includes(currentValue)) {
+      fileSelect.value = currentValue;
+    }
+  } catch (e) {
+    console.error(`[DEBUG ${side.toUpperCase()}] Сетевая или JS ошибка:`, e);
+    fileSelect.innerHTML = '<option value="" disabled selected>Ошибка сети</option>';
+  }
+}
+
+// Вызывается только при изменении селекта конкретного файла
+function onFileChange(sourceSide) {
+  const isSync = document.getElementById('syncPanels').checked;
+  const targetSide = sourceSide === 'left' ? 'right' : 'left';
+
+  if (isSync) {
+    const sourceFile = document.getElementById(sourceSide === 'left' ? 'fileLeft' : 'fileRight').value;
+    const targetFileSelect = document.getElementById(targetSide === 'left' ? 'fileLeft' : 'fileRight');
+
+    // Пытаемся выбрать такой же файл в противоположной панели, если он там есть на её дату
+    const hasOption = Array.from(targetFileSelect.options).some(opt => opt.value === sourceFile);
+    if (hasOption) {
+      targetFileSelect.value = sourceFile;
+    }
+
+    loadConfigFromBackend('left');
+    loadConfigFromBackend('right');
+  } else {
+    loadConfigFromBackend(sourceSide);
+  }
+}
+
+// Функция универсального заполнения селекта папками с сервера
+async function fetchFolderList(dirPath, selectElement, defaultText) {
+  try {
+    const response = await fetch(`/api/folders?path=${encodeURIComponent(dirPath)}`);
+    if (!response.ok) {
+      selectElement.innerHTML = `<option value="" disabled selected>${defaultText} (не найдено)</option>`;
+      return;
+    }
+
+    const folders = await response.json();
+    const currentValue = selectElement.value;
+
+    selectElement.innerHTML = `<option value="" disabled selected>${defaultText}</option>`;
+
+    if (!Array.isArray(folders) || folders.length === 0) {
+      selectElement.innerHTML = `<option value="" disabled selected>Нет данных</option>`;
+      return;
+    }
+
+    folders.forEach(folder => {
+      const opt = document.createElement('option');
+      opt.value = folder;
+      opt.textContent = folder;
+      selectElement.appendChild(opt);
+    });
+
+    if (folders.includes(currentValue)) {
+      selectElement.value = currentValue;
+    }
+  } catch (e) {
+    console.error(`Ошибка запроса папок для [${dirPath}]:`, e);
+  }
+}
+
+// При смене даты, типа (ЦОД/ЛВС) или региона обновляем вложенные селекты
+async function onTypeOrRegionChange(sourceSide) {
+  const isSync = document.getElementById('syncPanels').checked;
+  const targetSide = sourceSide === 'left' ? 'right' : 'left';
+
+  // 1. Синхронизация между панелями
+  if (isSync) {
+    ['type', 'region'].forEach(field => {
+      const sourceVal = document.getElementById(field + (sourceSide === 'left' ? 'Left' : 'Right')).value;
+      document.getElementById(field + (targetSide === 'left' ? 'Left' : 'Right')).value = sourceVal;
+    });
+  }
+
+  // 2. Подгружаем список Регионов и Устройств для сторон
+  await updateDynamicDropdowns(sourceSide);
+  if (isSync) {
+    await updateDynamicDropdowns(targetSide);
+  }
+<!--  await fetchFileList(sourceSide);-->
+<!--  if (isSync) await fetchFileList(targetSide);-->
+
+}
+
+async function updateDynamicDropdowns(side) {
+  const isLeft = side === 'left';
+  const dateVal = document.getElementById(isLeft ? 'dateLeft' : 'dateRight').value;
+  const typeVal = document.getElementById(isLeft ? 'typeLeft' : 'typeRight').value;
+  const regionSelect = document.getElementById(isLeft ? 'regionLeft' : 'regionRight');
+  const deviceSelect = document.getElementById(isLeft ? 'deviceLeft' : 'deviceRight');
+
+  if (!dateVal) return;
+
+  const [year, month, day] = dateVal.split('-');
+
+  // Шаг А: Подгружаем доступные Регионы для /archive/YYYY/MM/DD/Type
+  const typeDirPath = `/archive/${year}/${month}/${day}/${typeVal}`;
+  await fetchFolderList(typeDirPath, regionSelect, 'МРФ');
+
+  // Шаг Б: Если регион выбран, подгружаем доступные Платформы/ОС для /archive/YYYY/MM/DD/Type/Region
+  const regionVal = regionSelect.value;
+  if (regionVal) {
+    const regionDirPath = `${typeDirPath}/${regionVal}`;
+    await fetchFolderList(regionDirPath, deviceSelect, 'Платформа');
+  }
+}
+
+</script>
 </body>
 </html>
+
+
