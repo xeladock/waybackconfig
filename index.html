@@ -173,10 +173,10 @@
   <footer class="bg-white dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 p-2 grid grid-cols-3 items-center text-xs">
 
     <div class="flex space-x-2 justify-start">
- <button onclick="downloadConfig('left')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">📥 Скачать L</button>
+ <button onclick="downloadConfig('left')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">📥 Скачать ЛП</button>
 
         <button onclick="toggleHighlight('left')" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600">
-      <span id="highlightIconLeft">🔌 Подсветка L</span>
+      <span id="highlightIconLeft">💡 Подсветка ЛП</span>
       </button>
     </div>
 
@@ -188,8 +188,8 @@
 
     <div class="flex space-x-2 justify-end">
     <button onclick="toggleHighlight('right')" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600">
-      <span id="highlightIconRight">🔌 Подсветка R</span>
- <button onclick="downloadConfig('right')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">📥 Скачать R</button>
+      <span id="highlightIconRight">💡 Подсветка ПП</span>
+ <button onclick="downloadConfig('right')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">📥 Скачать ПП</button>
 
     </div>
   </footer>
@@ -348,12 +348,12 @@ function toggleHighlight(side) {
     isHighlightLeft = !isHighlightLeft;
     container.classList.toggle('no-diff-left', !isHighlightLeft);
     const iconEl = document.getElementById('highlightIconLeft');
-    if (iconEl) iconEl.textContent = `${isHighlightLeft ? '🔌' : '💡'} Подсветка L`;
+    if (iconEl) iconEl.textContent = `${isHighlightLeft ? '💡' : '🔌'} Подсветка ЛП`;
   } else if (side === 'right') {
     isHighlightRight = !isHighlightRight;
     container.classList.toggle('no-diff-right', !isHighlightRight);
     const iconEl = document.getElementById('highlightIconRight');
-    if (iconEl) iconEl.textContent = `${isHighlightRight ? '🔌' : '💡'} Подсветка R`;
+    if (iconEl) iconEl.textContent = `${isHighlightRight ? '💡' : '🔌'} Подсветка ПП`;
   }
 }
 
