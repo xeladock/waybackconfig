@@ -1,37 +1,75 @@
 <!DOCTYPE html>
 <html lang="ru" class="dark">
 <head>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
   <meta charset="UTF-8">
-  <title>Network Config Diff Tool</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>WaybackConfig</title>
+  <script src="./static/js/tailwind.js"></script>
   <script>
     tailwind.config = { darkMode: 'class' }
   </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js"></script>
+  <script src="./static/js/loader.min.js"></script>
   <style>
-  #editor-container.no-diff-left .editor.original .monaco-editor .line-insert,
-  #editor-container.no-diff-left .editor.original .monaco-editor .line-delete,
-  #editor-container.no-diff-left .editor.original .monaco-editor .char-insert,
-  #editor-container.no-diff-left .editor.original .monaco-editor .char-delete,
-  #editor-container.no-diff-left .editor.original .monaco-editor .view-overlays .line-insert,
-  #editor-container.no-diff-left .editor.original .monaco-editor .view-overlays .line-delete {
-    background-color: transparent !important;
-    background: transparent !important;
-  }
+      /* Отключение подсветки для ЛЕВОЙ панели */
+#editor-container.no-diff-left .monaco-diff-editor .editor.original .line-insert,
+#editor-container.no-diff-left .monaco-diff-editor .editor.original .line-delete,
+#editor-container.no-diff-left .monaco-diff-editor .editor.original .char-insert,
+#editor-container.no-diff-left .monaco-diff-editor .editor.original .char-delete,
+#editor-container.no-diff-left .monaco-diff-editor .editor.original .view-overlays .line-insert,
+#editor-container.no-diff-left .monaco-diff-editor .editor.original .view-overlays .line-delete {
+  background-color: transparent !important;
+  background: transparent !important;
+}
 
-  /* Отключение фона диффов на правой (Modified) панели */
-  #editor-container.no-diff-right .editor.modified .monaco-editor .line-insert,
-  #editor-container.no-diff-right .editor.modified .monaco-editor .line-delete,
-  #editor-container.no-diff-right .editor.modified .monaco-editor .char-insert,
-  #editor-container.no-diff-right .editor.modified .monaco-editor .char-delete,
-  #editor-container.no-diff-right .editor.modified .monaco-editor .view-overlays .line-insert,
-  #editor-container.no-diff-right .editor.modified .monaco-editor .view-overlays .line-delete {
-    background-color: transparent !important;
-    background: transparent !important;
-  }
-    .monaco-editor-overlaymessage {
-    display: none !important;
-  }
+/* Отключение подсветки для ПРАВОЙ панели */
+#editor-container.no-diff-right .monaco-diff-editor .editor.modified .line-insert,
+#editor-container.no-diff-right .monaco-diff-editor .editor.modified .line-delete,
+#editor-container.no-diff-right .monaco-diff-editor .editor.modified .char-insert,
+#editor-container.no-diff-right .monaco-diff-editor .editor.modified .char-delete,
+#editor-container.no-diff-right .monaco-diff-editor .editor.modified .view-overlays .line-insert,
+#editor-container.no-diff-right .monaco-diff-editor .editor.modified .view-overlays .line-delete {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+    #editor-container.empty-diff .monaco-diff-editor .line-insert,
+    #editor-container.empty-diff .monaco-diff-editor .line-delete,
+    #editor-container.empty-diff .monaco-diff-editor .char-insert,
+    #editor-container.empty-diff .monaco-diff-editor .char-delete,
+    #editor-container.empty-diff .monaco-diff-editor .view-overlays .line-insert,
+    #editor-container.empty-diff .monaco-diff-editor .view-overlays .line-delete,
+    #editor-container.empty-diff .monaco-diff-editor .margin-view-overlays .line-insert,
+    #editor-container.empty-diff .monaco-diff-editor .margin-view-overlays .line-delete {
+      background-color: transparent !important;
+      background: transparent !important;
+    }
+    /* Полное скрытие разделителя (sash) и его границ в Monaco 0.40+ */
+    #editor-container .monaco-diff-editor .sash-container,
+    #editor-container .monaco-diff-editor .monaco-sash,
+    #editor-container .monaco-diff-editor .monaco-sash *,
+    #editor-container .monaco-diff-editor .diffLineWithVisualOverview,
+    #editor-container .monaco-diff-editor .editor.modified,
+    #editor-container .monaco-diff-editor .editor.original {
+      box-shadow: none !important;
+      border-left: none !important;
+      border-right: none !important;
+    }
+
+    /* Скрываем фоновую область и полосу между редакторами */
+    #editor-container .monaco-diff-editor .gutter-background,
+    #editor-container .monaco-diff-editor .monaco-editor-background,
+    #editor-container .monaco-diff-editor .diff-review-summary,
+    #editor-container .monaco-diff-editor .margin-view-overlays {
+      border-right: none !important;
+      border-left: none !important;
+    }
+
+    /* Убираем псевдоэлементы линий разделителя */
+    #editor-container .monaco-sash:before,
+    #editor-container .monaco-sash:after {
+      background: transparent !important;
+      display: none !important;
+    }
+
   .monaco-editor .cursor {
   display: none !important;
 }
@@ -59,11 +97,10 @@
 
   <!-- ШАПКА -->
   <header class="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-4 py-2 flex justify-between items-center z-10">
-    <h1 class="font-bold text-lg text-blue-600 dark:text-blue-400">⚡ WaybackConfig v0.14</h1>
+    <h1 class="font-bold text-lg text-blue-600 dark:text-blue-400">⚡ WaybackConfig v0.19</h1>
 <!-- кнопка синхронизации-->
         <div class="flex items-center space-x-5">
-      <label class="p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium flex items-center space-x-2 cursor-pointer select-none transition-colors border border-transparent">
-        <input type="checkbox" id="syncPanels" checked onchange="updateSyncIcon()" checked class="rounded border-gray-400 text-blue-600 focus:ring-blue-500 w-4 h-4">
+<label class="p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-sm font-medium flex items-center space-x-2 cursor-pointer select-none transition-all duration-150 active:scale-95 border border-transparent">        <input type="checkbox" id="syncPanels" checked onchange="updateSyncIcon()" checked class="rounded border-gray-400 text-blue-600 focus:ring-blue-500 w-4 h-4">
         <span id="syncIcon">🔗</span>
         <span class="font-medium">Синхронизация панелей</span>
       </label>
@@ -78,12 +115,12 @@
 <!-- кнопка свитчинга-->
     <div class="flex items-center space-x-5">
   <!-- Добавленная кнопка "Switch panels" -->
-  <button onclick="switchPanels()" class="p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium flex items-center space-x-1 transition-colors">
-    <span>🔄 Поменять местами</span>
-  </button>
+<button onclick="switchPanels(this)" class="p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-sm font-medium flex items-center space-x-1 transition-all duration-150 active:scale-95">
+  <span id="switchIcon" class="inline-block transition-transform duration-300">🔄</span>
+  <span>Поменять местами</span>
+</button>
 <!-- кнопка т-->
-      <button onclick="toggleTheme()" class="p-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm flex items-center space-x-1">
-        <span id="themeIcon">☀️ День</span>
+<button onclick="toggleTheme()" class="p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-sm flex items-center space-x-1.5 transition-all duration-150 active:scale-95 select-none">        <span id="themeIcon">☀️ День</span>
       </button>
     </div>
   </header>
@@ -94,7 +131,7 @@
 
     <!-- Левая панель (ровно 50% ширины) -->
 <div class="flex items-center space-x-2">
-    <input type="date" id="dateLeft" onchange="onDeviceChange('left')" class="w-36 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
+    <input type="date" id="dateLeft" min="2026-09-18" onchange="onDeviceChange('left')" class="w-36 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
     <select id="typeLeft" onchange="onTypeOrRegionChange('left')" class="w-20 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
       <option value="" disabled selected>УЭС</option>
       <option value="ЦОД">ЦОД</option>
@@ -105,9 +142,6 @@
       <select id="deviceLeft" onchange="onDeviceChange('left')" class="w-72 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none truncate">
       <option value="" disabled selected>Платформа</option>
       </select>
-
-
-
     <select id="fileLeft" onchange="onFileChange('left')" class="w-72 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none truncate">
       <option value="" disabled selected>Конфигурация</option></select>
 
@@ -116,7 +150,7 @@
 
     <!-- Правая панель (ровно 50% ширины) -->
   <div class="flex items-center space-x-2">
-      <input type="date" id="dateRight" onchange="onDeviceChange('right')" class="w-36 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
+      <input type="date" id="dateRight" min="2026-09-18" onchange="onDeviceChange('right')" class="w-36 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
       <select id="typeRight" onchange="onTypeOrRegionChange('right')" class="w-20 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
       <option value="" disabled selected>УЭС</option>
       <option value="ЦОД">ЦОД</option>
@@ -135,14 +169,13 @@
   </div>
 
   <!-- ОБЛАСТЬ MONACO EDITOR -->
-  <div id="editor-container" class="flex-1 w-full h-full overflow-hidden hide-cursor"></div>
-
-  <!-- ПОДВАЛ (3-КОЛОНОЧНАЯ СЕТКА) -->
+  <div id="editor-container" class="flex-1 w-full h-full overflow-hidden hide-cursor empty-diff"></div>  <!-- ПОДВАЛ (3-КОЛОНОЧНАЯ СЕТКА) -->
   <footer class="bg-white dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 p-2 grid grid-cols-3 items-center text-xs">
 
     <div class="flex space-x-2 justify-start">
-      <button onclick="downloadConfig('left')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">📥 Скачать L</button>
-     <button onclick="toggleHighlight('left')" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600">
+ <button onclick="downloadConfig('left')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">📥 Скачать L</button>
+
+        <button onclick="toggleHighlight('left')" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600">
       <span id="highlightIconLeft">🔌 Подсветка L</span>
       </button>
     </div>
@@ -156,8 +189,8 @@
     <div class="flex space-x-2 justify-end">
     <button onclick="toggleHighlight('right')" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600">
       <span id="highlightIconRight">🔌 Подсветка R</span>
-    </button>
-      <button onclick="downloadConfig('right')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">📥 Скачать R</button>
+ <button onclick="downloadConfig('right')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded font-medium">📥 Скачать R</button>
+
     </div>
   </footer>
 
@@ -166,18 +199,16 @@
 let diffEditor;
 let currentTheme = 'vs-dark';
 
-<!--const MONTH_NAMES = [-->
-<!--  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",-->
-<!--  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"-->
-<!--];-->
 
-require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } });
+
+require.config({ paths: { vs: './nm/monaco/min/vs' } });
 
 require(['vs/editor/editor.main'], function () {
   diffEditor = monaco.editor.createDiffEditor(document.getElementById('editor-container'), {
     theme: currentTheme,
     automaticLayout: true,
     readOnly: true,
+    renderIndicators: false,
     renderSideBySide: true,
     splitViewDefaultRatio: 0.5,
     originalEditable: false,
@@ -186,13 +217,18 @@ require(['vs/editor/editor.main'], function () {
     glyphMargin: false,
     lineNumbers: 'off',
     renderLineHighlight: 'none',
+    scrollBeyondLastLine: false,
+    hideUnchangedRegions: false,
+    renderMarginRevertIcon: false,
+    enableSplitViewResizing: true,
     scrollbar: {
       vertical: 'visible',
       verticalScrollbarSize: 10,
       useShadows: false
     }
-  });
 
+
+  });
   diffEditor.setModel({
     original: monaco.editor.createModel('', 'text/plain'),
     modified: monaco.editor.createModel('', 'text/plain')
@@ -220,23 +256,6 @@ require(['vs/editor/editor.main'], function () {
   });
 });
 
-// function getConfigUrl(side) {
-//   const isLeft = side === 'left';
-//   const dateVal = document.getElementById(isLeft ? 'dateLeft' : 'dateRight').value;
-//   const typeVal = document.getElementById(isLeft ? 'typeLeft' : 'typeRight').value;
-//   const regionVal = document.getElementById(isLeft ? 'regionLeft' : 'regionRight').value;
-//   const deviceVal = document.getElementById(isLeft ? 'deviceLeft' : 'deviceRight').value;
-//   const fileVal = document.getElementById(isLeft ? 'fileLeft' : 'fileRight').value;
-//
-//   if (!dateVal || !deviceVal || !fileVal) return null;
-//
-//   const [year, monthStr, dayStr] = dateVal.split('-');
-//   const monthName = MONTH_NAMES[parseInt(monthStr, 10) - 1];
-//   const day = parseInt(dayStr, 10);
-//
-//   const filePath = `/archive/${year}/${monthName}/${dayStr}/${typeVal}/${regionVal}/${deviceVal}/${fileVal}`;
-//   return `/api/config?path=${encodeURIComponent(filePath)}`;
-// }
 
 async function loadConfigFromBackend(side) {
   const url = getConfigUrl(side);
@@ -252,6 +271,7 @@ async function loadConfigFromBackend(side) {
   } catch (error) {
     console.error(`Ошибка загрузки [${side}]:`, error);
     updateEditorModel(side, `! Ошибка загрузки файла конфигурации\n! ${error.message}`);
+    fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
   }
 }
 
@@ -259,24 +279,51 @@ async function loadConfigFromBackend(side) {
 
 function updateEditorModel(side, text) {
   const model = diffEditor.getModel();
+  const cleanText = text ? text.trimEnd() : '';
 
   if (side === 'left') {
-    model.original.setValue(text);
+    model.original.setValue(cleanText);
   } else {
-    model.modified.setValue(text);
+    model.modified.setValue(cleanText);
   }
 
-  diffEditor.updateOptions({
-    lineNumbers: 'on',
-    renderLineHighlight: 'all'
-  });
+  const leftHasText = model.original.getValue().trim().length > 0;
+  const rightHasText = model.modified.getValue().trim().length > 0;
 
-  document.getElementById('editor-container').classList.remove('hide-cursor');
+  const container = document.getElementById('editor-container');
+
+  // Включаем подсветку и убираем маскирующий класс ТОЛЬКО если оба конфига загружены
+  if (leftHasText && rightHasText) {
+    if (container) {
+      container.classList.remove('empty-diff');
+      container.classList.remove('hide-cursor');
+    }
+
+    diffEditor.updateOptions({
+      lineNumbers: 'on',
+      renderLineHighlight: 'all',
+      renderIndicators: true
+    });
+  } else {
+    // Если один из файлов еще грузится — сохраняем чистый вид
+    if (container) {
+      container.classList.add('empty-diff');
+    }
+    diffEditor.updateOptions({
+      renderIndicators: false
+    });
+  }
 }
 
 function toggleTheme() {
   const html = document.documentElement;
   const icon = document.getElementById('themeIcon');
+  if (icon) {
+    icon.style.transform = 'rotate(360deg)';
+    setTimeout(() => {
+      icon.style.transform = 'rotate(0deg)';
+    }, 300);
+  }
 
   if (html.classList.contains('dark')) {
     html.classList.remove('dark');
@@ -313,22 +360,42 @@ function toggleHighlight(side) {
 function switchPanels() {
   const fields = ['date', 'type', 'region', 'device', 'file'];
 
+  // 1. Меняем местами HTML-содержимое (варианты <option>) и значения всех селектов/полей
   fields.forEach(field => {
     const leftEl = document.getElementById(field + 'Left');
     const rightEl = document.getElementById(field + 'Right');
 
     if (leftEl && rightEl) {
+      // Сохраняем варианты выбора (<option>) и значения левой панели
+      const tempHTML = leftEl.innerHTML;
       const tempValue = leftEl.value;
+
+      // Переносим данные из правой панели в левую
+      leftEl.innerHTML = rightEl.innerHTML;
       leftEl.value = rightEl.value;
+
+      // Переносим сохраненные данные из левой панели в правую
+      rightEl.innerHTML = tempHTML;
       rightEl.value = tempValue;
     }
   });
 
-  if (isHighlightLeft !== isHighlightRight) {
-    toggleHighlight('left');
-    toggleHighlight('right');
-  }
+  // 2. Меняем местами состояние подсветок (флаги и CSS-классы)
+  const tempHighlight = isHighlightLeft;
+  isHighlightLeft = isHighlightRight;
+  isHighlightRight = tempHighlight;
 
+  const container = document.getElementById('editor-container');
+  container.classList.toggle('no-diff-left', !isHighlightLeft);
+  container.classList.toggle('no-diff-right', !isHighlightRight);
+
+  // Обновляем текст на кнопках подсветок
+  const iconLeft = document.getElementById('highlightIconLeft');
+  const iconRight = document.getElementById('highlightIconRight');
+  if (iconLeft) iconLeft.textContent = `${isHighlightLeft ? '🔌' : '💡'} Подсветка L`;
+  if (iconRight) iconRight.textContent = `${isHighlightRight ? '🔌' : '💡'} Подсветка R`;
+
+  // 3. Меняем местами содержимое Monaco Editor
   if (diffEditor) {
     const model = diffEditor.getModel();
     if (model) {
@@ -345,10 +412,10 @@ function updateSyncIcon() {
   const isSync = document.getElementById('syncPanels').checked;
   const iconEl = document.getElementById('syncIcon');
   iconEl.textContent = isSync ? '🔗' : '⛓️‍💥';
+
 }
 
-function downloadConfig(side) { alert(`Скачивание конфига для ${side}`); }
-function downloadDiff() { alert('Скачивание diff файла...'); }
+
 
 window.addEventListener('resize', () => {
   diffEditor.layout();
@@ -419,12 +486,16 @@ async function onDeviceChange(sourceSide) {
       targetDateEl.value = getTodayDateString();
     }
 
+
+
     // Синхронизируем настройки устройства (Тип, Регион, Устройство)
     const fields = ['type', 'region', 'device'];
     fields.forEach(field => {
       const sourceVal = document.getElementById(field + (sourceSide === 'left' ? 'Left' : 'Right')).value;
       document.getElementById(field + (targetSide === 'left' ? 'Left' : 'Right')).value = sourceVal;
     });
+    await updateDynamicDropdowns('left');
+    await updateDynamicDropdowns('right');
 
     // 2. Считываем списки файлов (каждая панель смотрит свою дату)
     await fetchFileList('left');
@@ -442,8 +513,10 @@ async function onDeviceChange(sourceSide) {
     }
 
     // 4. Загружаем оба файла в редактор
-    loadConfigFromBackend('left');
-    loadConfigFromBackend('right');
+    await Promise.all([
+      loadConfigFromBackend('left'),
+      loadConfigFromBackend('right')
+    ]);
   } else {
     await fetchFileList(sourceSide);
     loadConfigFromBackend(sourceSide);
@@ -457,47 +530,30 @@ async function fetchFileList(side) {
   const deviceVal = document.getElementById(isLeft ? 'deviceLeft' : 'deviceRight').value;
   const fileSelect = document.getElementById(isLeft ? 'fileLeft' : 'fileRight');
 
-  // Выводим выбранные значения для проверки
-  console.log(`--- [DEBUG ${side.toUpperCase()}] Сбор параметров ---`, {
-    dateVal, typeVal, regionVal, deviceVal
-  });
-
+  // Если хотя бы одно обязательное поле не выбрано — сбрасываем список файлов на заголовок
   if (!dateVal || !regionVal || !deviceVal) {
-    console.warn(`[DEBUG ${side.toUpperCase()}] Пропущены обязательные поля!`);
     fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
     return;
   }
 
   const [year, monthStr, dayStr] = dateVal.split('-');
-<!--  const monthName = MONTH_NAMES[parseInt(monthStr, 10) - 1];-->
-<!--  const day = parseInt(dayStr, 10);-->
-
-  // Формируем итоговый путь
   const dirPath = `/archive/${year}/${monthStr}/${dayStr}/${typeVal}/${regionVal}/${deviceVal}`;
   const requestUrl = `/api/devices?path=${encodeURIComponent(dirPath)}`;
 
-  console.log(`[DEBUG ${side.toUpperCase()}] Итоговый путь к папке:`, dirPath);
-  console.log(`[DEBUG ${side.toUpperCase()}] Итоговый URL запроса:`, requestUrl);
-
   try {
     const response = await fetch(requestUrl);
-    console.log(`[DEBUG ${side.toUpperCase()}] Ответ сервера (HTTP Status):`, response.status);
 
     if (!response.ok) {
-      console.error(`[DEBUG ${side.toUpperCase()}] Ошибка от сервера: Status ${response.status}`);
-      fileSelect.innerHTML = `<option value="" disabled selected>Ошибка HTTP ${response.status}</option>`;
+      fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
       return;
     }
 
     const files = await response.json();
-    console.log(`[DEBUG ${side.toUpperCase()}] Полученные файлы от бэкенда:`, files);
-
     const currentValue = fileSelect.value;
+
     fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
 
     if (!Array.isArray(files) || files.length === 0) {
-      console.warn(`[DEBUG ${side.toUpperCase()}] Список файлов пуст!`);
-      fileSelect.innerHTML = '<option value="" disabled selected>Нет данных</option>';
       return;
     }
 
@@ -512,8 +568,8 @@ async function fetchFileList(side) {
       fileSelect.value = currentValue;
     }
   } catch (e) {
-    console.error(`[DEBUG ${side.toUpperCase()}] Сетевая или JS ошибка:`, e);
-    fileSelect.innerHTML = '<option value="" disabled selected>Ошибка сети</option>';
+    console.error(`[DEBUG ${side.toUpperCase()}] Ошибка:`, e);
+    fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
   }
 }
 
@@ -577,6 +633,13 @@ async function fetchFolderList(dirPath, selectElement, defaultText) {
 async function onTypeOrRegionChange(sourceSide) {
   const isSync = document.getElementById('syncPanels').checked;
   const targetSide = sourceSide === 'left' ? 'right' : 'left';
+<!--    resetDeviceSelect(sourceSide);-->
+<!--    resetFileSelectDropdown(sourceSide);-->
+
+<!--    if (isSync) {-->
+<!--        resetDeviceSelect(targetSide);-->
+<!--        resetFileSelectDropdown(targetSide);-->
+<!--      }-->
 
   // 1. Синхронизация между панелями
   if (isSync) {
@@ -586,15 +649,36 @@ async function onTypeOrRegionChange(sourceSide) {
     });
   }
 
+
   // 2. Подгружаем список Регионов и Устройств для сторон
   await updateDynamicDropdowns(sourceSide);
   if (isSync) {
     await updateDynamicDropdowns(targetSide);
   }
+
+
+
+
 <!--  await fetchFileList(sourceSide);-->
 <!--  if (isSync) await fetchFileList(targetSide);-->
 
 }
+function resetDeviceSelect(side) {
+  const deviceSelect = document.getElementById(side === 'left' ? 'deviceLeft' : 'deviceRight');
+  if (deviceSelect) {
+    deviceSelect.innerHTML = '<option value="" disabled selected>Платформа</option>';
+  }
+}
+
+function resetFileSelectDropdown(side) {
+  const fileSelect = document.getElementById(side === 'left' ? 'fileLeft' : 'fileRight');
+  if (fileSelect) {
+    fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
+  }
+  // Очищаем панель редактора, так как файл больше не выбран
+  updateEditorModel(side, '');
+}
+
 
 async function updateDynamicDropdowns(side) {
   const isLeft = side === 'left';
@@ -617,7 +701,155 @@ async function updateDynamicDropdowns(side) {
     const regionDirPath = `${typeDirPath}/${regionVal}`;
     await fetchFolderList(regionDirPath, deviceSelect, 'Платформа');
   }
+  else {
+    // Явно возвращаем плейсхолдер "Платформа", если регион пустой или сбросился
+    deviceSelect.innerHTML = '<option value="" disabled selected>Платформа</option>';
+  }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const today = getTodayDateString();
+
+  document.getElementById('dateLeft').max = today;
+  document.getElementById('dateRight').max = today;
+});
+function downloadConfig(side) {
+  if (!diffEditor) return;
+
+  const model = diffEditor.getModel();
+  if (!model) return;
+
+  const isLeft = side === 'left';
+  const content = isLeft ? model.original.getValue() : model.modified.getValue();
+
+  if (!content || content.trim() === '') {
+    alert(`Панель ${isLeft ? 'L (слева)' : 'R (справа)'} пуста. Скачивать нечего!`);
+    return;
+  }
+
+  const dateInput = document.getElementById(isLeft ? 'dateLeft' : 'dateRight');
+  const fileSelect = document.getElementById(isLeft ? 'fileLeft' : 'fileRight');
+  const deviceSelect = document.getElementById(isLeft ? 'deviceLeft' : 'deviceRight');
+
+  // Получаем дату из календаря панели (например, "2026-09-18")
+  const dateVal = dateInput && dateInput.value ? dateInput.value : '';
+  let fileName = fileSelect && fileSelect.value ? fileSelect.value : '';
+
+  if (!fileName) {
+    const deviceName = deviceSelect && deviceSelect.value ? deviceSelect.value : 'config';
+    fileName = `${deviceName}_${isLeft ? 'left' : 'right'}.txt`;
+<!--  } else {-->
+<!--    // Если у файла нет расширения, добавляем .txt-->
+<!--    if (!fileName.includes('.')) {-->
+<!--      fileName += '.txt';-->
+<!--    }-->
+  }
+
+  // Если дата выбрана, добавляем её в начало имени файла: YYYY-MM-DD_filename.txt
+  if (dateVal) {
+    fileName = `${dateVal}_${fileName}`;
+  }
+
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const downloadUrl = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+
+  document.body.removeChild(link);
+  URL.revokeObjectURL(downloadUrl);
+}
+
+function downloadDiff() {
+  if (!diffEditor) return;
+
+  const model = diffEditor.getModel();
+  if (!model || !model.original || !model.modified) return;
+
+  const leftContent = model.original.getValue();
+  const rightContent = model.modified.getValue();
+
+  if (!leftContent.trim() && !rightContent.trim()) {
+    alert('Обе панели пусты. Нечего сравнивать!');
+    return;
+  }
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const currentTime = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+
+  // 1. Считываем значения всех селектов и полей ввода
+  const getValue = (id, fallback) => {
+    const el = document.getElementById(id);
+    return el && el.value ? el.value : fallback;
+  };
+
+  const dateL = getValue('dateLeft', 'NoDate_L');
+  const typeL = getValue('typeLeft', 'NoType_L');
+  const regionL = getValue('regionLeft', 'NoRegion_L');
+  const deviceL = getValue('deviceLeft', 'NoDevice_L');
+  const fileL = getValue('fileLeft', 'NoFile_L');
+
+  const dateR = getValue('dateRight', 'NoDate_R');
+  const typeR = getValue('typeRight', 'NoType_R');
+  const regionR = getValue('regionRight', 'NoRegion_R');
+  const deviceR = getValue('deviceRight', 'NoDevice_R');
+  const fileR = getValue('fileRight', 'NoFile_R');
+
+  // Формируем первую строку заголовка со всеми выбранными параметрами
+  let diffOutput = `DIff:(L) ${dateL} ${typeL} ${regionL} ${deviceL} ${fileL}' between (R) '${dateR} ${typeR} ${regionR} ${deviceR} ${fileR}'\n----\n\n`;
+
+  // 2. Построчно сравниваем конфиги
+  const leftLines = leftContent.split(/\r?\n/);
+  const rightLines = rightContent.split(/\r?\n/);
+  const maxLines = Math.max(leftLines.length, rightLines.length);
+
+  let diffCount = 0;
+
+  for (let i = 0; i < maxLines; i++) {
+    const lineL = leftLines[i] !== undefined ? leftLines[i] : '';
+    const lineR = rightLines[i] !== undefined ? rightLines[i] : '';
+
+    // Если строки отличаются
+    if (lineL !== lineR) {
+      diffCount++;
+      const lineNumber = i + 1;
+
+      // Записываем номер строки и различия
+      diffOutput += `Line ${lineNumber}:\n`;
+      diffOutput += `L: ${lineL}\n`;
+      diffOutput += `R: ${lineR}\n\n`;
+    }
+  }
+
+  // 3. Проверка на идентичность
+  if (diffCount === 0) {
+    alert('Конфигурации идентичны!');
+    return;
+  }
+
+  // 4. Скачивание файла
+  const fileName = `diff_${currentTime}.txt`;
+  const blob = new Blob([diffOutput], { type: 'text/plain;charset=utf-8' });
+  const downloadUrl = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+
+  document.body.removeChild(link);
+  URL.revokeObjectURL(downloadUrl);
+}
+
 
 </script>
 </body>

@@ -88,5 +88,5 @@ class ConfigServer(SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     print(f"Сервер запущен! Поиск конфигов привязан к абсолютной папке: {BASE_ARCHIVE_DIR}")
-    print("Откройте в браузере: http://localhost:8000")
+    print("Откройте в браузере: http://localhost:8001")
     HTTPServer(('0.0.0.0', 8001), ConfigServer).serve_forever()
