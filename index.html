@@ -97,10 +97,21 @@
 
   <!-- ШАПКА -->
   <header class="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-4 py-2 flex justify-between items-center z-10">
-    <h1 class="font-bold text-lg text-blue-600 dark:text-blue-400">⚡ WaybackConfig v0.19</h1>
+    <h1 class="font-bold text-lg text-blue-600 dark:text-blue-400">⚡ WaybackConfig v0.22</h1>
+      <!-- Внутри тега <footer> в секции "flex justify-center" -->
+<div class="absolute left-1/2 transform -translate-x-1/2 flex items-center space-x-2 z-20">
+  <button onclick="jumpToDiff('next')" class="w-32 p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-sm font-medium flex items-center justify-center space-x-1 transition-all duration-150 active:scale-95">
+    <span>⬇️ Jump Down</span>
+  </button>
+
+  <button onclick="jumpToDiff('prev')" class="w-32 p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-sm font-medium flex items-center justify-center space-x-1 transition-all duration-150 active:scale-95">
+    <span>⬆️ Jump Up</span>
+  </button>
+</div>
 <!-- кнопка синхронизации-->
         <div class="flex items-center space-x-5">
-<label class="p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-sm font-medium flex items-center space-x-2 cursor-pointer select-none transition-all duration-150 active:scale-95 border border-transparent">        <input type="checkbox" id="syncPanels" checked onchange="updateSyncIcon()" checked class="rounded border-gray-400 text-blue-600 focus:ring-blue-500 w-4 h-4">
+<label class="p-1.5 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-sm font-medium flex items-center space-x-2 cursor-pointer select-none transition-all duration-150 active:scale-95 border border-transparent">
+    <input type="checkbox" id="syncPanels" checked onchange="updateSyncIcon()" checked class="rounded border-gray-400 text-blue-600 focus:ring-blue-500 w-4 h-4">
         <span id="syncIcon">🔗</span>
         <span class="font-medium">Синхронизация панелей</span>
       </label>
@@ -606,6 +617,7 @@ async function fetchFolderList(dirPath, selectElement, defaultText) {
     const response = await fetch(`/api/folders?path=${encodeURIComponent(dirPath)}`);
     if (!response.ok) {
       selectElement.innerHTML = `<option value="" disabled selected>${defaultText} (не найдено)</option>`;
+      window.location.reload();
       return;
     }
 
@@ -885,6 +897,54 @@ function downloadDiff() {
 
   document.body.removeChild(link);
   URL.revokeObjectURL(downloadUrl);
+}
+
+function jumpToDiff(direction) {
+  if (!diffEditor) return;
+
+  const lineChanges = diffEditor.getLineChanges();
+  if (!lineChanges || lineChanges.length === 0) {
+    console.log('Различия не найдены или еще не рассчитаны');
+    return;
+  }
+
+  const modifiedEditor = diffEditor.getModifiedEditor();
+  const position = modifiedEditor.getPosition();
+  const currentLine = position ? position.lineNumber : 1;
+
+  // Извлекаем список начальных строк всех блоков изменений
+  const diffLines = lineChanges.map(change => change.modifiedStartLineNumber).sort((a, b) => a - b);
+
+  let targetLine = null;
+
+  if (direction === 'next') {
+    // Ищем первую строку диффа строго НИЖЕ текущей позиции
+    targetLine = diffLines.find(line => line > currentLine);
+    // Если дошли до конца — циклично переходим на самую первую разницу
+    if (!targetLine) {
+      targetLine = diffLines[0];
+    }
+  } else if (direction === 'prev') {
+    // Ищем строку диффа ВЫШЕ текущей позиции
+    const prevLines = diffLines.filter(line => line < currentLine);
+    targetLine = prevLines.length > 0 ? prevLines[prevLines.length - 1] : diffLines[diffLines.length - 1];
+  }
+
+  if (targetLine !== null) {
+    modifiedEditor.focus();
+
+    // Перемещаем курсор на целевую строку
+    modifiedEditor.setPosition({ lineNumber: targetLine, column: 1 });
+
+    // revealLine(lineNumber, scrollType)
+    // 0 соответствует сопоставлению со слабым скроллом, но чтобы строка встала
+    // РОВНО В САМЫЙ ВЕРХ экрана, используем метод revealLineInCenter или передаем тип прокрутки
+    // В Monaco 0.40+ аргумент '0' (ScrollType.Smooth) вместе с revealLine
+    // сдвигает строку наверх, если использовать следующий трюк с scrollTop:
+
+    const topPixel = modifiedEditor.getTopForLineNumber(targetLine);
+    modifiedEditor.setScrollTop(topPixel);
+  }
 }
 
 
