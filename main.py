@@ -26,8 +26,12 @@ def check_archive_health():
         return False
     return True
 
+@app.get("/healthz/live", status_code=200)
+async def liveness():
+    """Проверка: жив ли процесс Python"""
+    return {"status": "ok"}
 
-@app.get("/healthz", summary="Kubernetes Liveness Probe")
+@app.get("/healthz/ready", summary="Kubernetes Liveness Probe")
 def liveness_probe():
     """Эндпоинт для k8s liveness probe и фронтенд-поллинга."""
     if not check_archive_health():
@@ -53,7 +57,7 @@ def serve_index():
                 // Автопроверка каждые 60 секунд (60000 мс)
                 setInterval(async () => {
                     try {
-                        const response = await fetch('/healthz');
+                        const response = await fetch('/healthz/ready');
                         if (response.ok) {
                             // Если архив появился и не пуст — перезагружаем страницу в "главное окно"
                             window.location.reload();
@@ -137,4 +141,4 @@ if __name__ == '__main__':
     import uvicorn
 
     # print(f"Запуск FastAPI сервера через Uvicorn. Архив: {BASE_ARCHIVE_DIR}")
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, workers=1,access_log=False)
+    uvicorn.run(app, host="0.0.0.0", port=8001, workers=1,access_log=False)
