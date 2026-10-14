@@ -321,6 +321,7 @@ function updateEditorModel(side, text) {
       container.classList.add('empty-diff');
     }
     diffEditor.updateOptions({
+      lineNumbers: 'off',
       renderIndicators: false
     });
   }
@@ -486,23 +487,22 @@ async function onDeviceChange(sourceSide) {
   const sourceDateEl = document.getElementById(sourceSide === 'left' ? 'dateLeft' : 'dateRight');
   const targetDateEl = document.getElementById(targetSide === 'left' ? 'dateLeft' : 'dateRight');
 
-  resetFileSelectDropdown(sourceSide);
-  if (isSync) {
-    resetFileSelectDropdown(targetSide);
-  }
-
-  // 1. Ставим сегодняшнее число ТОЛЬКО в ту панель, где пользователь делает выбор (если там пусто)
+  // 1. Ставим сегодняшнее число, если дата не выбрана
   if (!sourceDateEl.value) {
     sourceDateEl.value = getTodayDateString();
   }
 
+  // Считываем текущий выбранный файл ДО сброса
+  const sourceFileSelect = document.getElementById(sourceSide === 'left' ? 'fileLeft' : 'fileRight');
+  const savedFile = sourceFileSelect ? sourceFileSelect.value : null;
+
   if (isSync) {
-    // Если во второй панели дата всё ещё не выбрана — по умолчанию задаем ей сегодня
     if (!targetDateEl.value) {
       targetDateEl.value = getTodayDateString();
     }
 
-
+    const targetFileSelect = document.getElementById(targetSide === 'left' ? 'fileLeft' : 'fileRight');
+    const savedFileTarget = targetFileSelect ? targetFileSelect.value : null;
 
     // Синхронизируем настройки устройства (Тип, Регион, Устройство)
     const fields = ['type', 'region', 'device'];
@@ -510,35 +510,25 @@ async function onDeviceChange(sourceSide) {
       const sourceVal = document.getElementById(field + (sourceSide === 'left' ? 'Left' : 'Right')).value;
       document.getElementById(field + (targetSide === 'left' ? 'Left' : 'Right')).value = sourceVal;
     });
+
     await updateDynamicDropdowns('left');
     await updateDynamicDropdowns('right');
 
-    // 2. Считываем списки файлов (каждая панель смотрит свою дату)
-    await fetchFileList('left');
-    await fetchFileList('right');
+    // Обновляем списки файлов с сохранением ранее выбранных файлов
+    await fetchFileList('left', savedFile);
+    await fetchFileList('right', savedFileTarget);
 
-    // 3. Автоматически выбираем тот же самый файл во второй панели
-    const sourceFileSelect = document.getElementById(sourceSide === 'left' ? 'fileLeft' : 'fileRight');
-    const targetFileSelect = document.getElementById(targetSide === 'left' ? 'fileLeft' : 'fileRight');
-
-    if (sourceFileSelect.value) {
-      const hasOption = Array.from(targetFileSelect.options).some(opt => opt.value === sourceFileSelect.value);
-      if (hasOption) {
-        targetFileSelect.value = sourceFileSelect.value;
-      }
-    }
-
-    // 4. Загружаем оба файла в редактор
     await Promise.all([
       loadConfigFromBackend('left'),
       loadConfigFromBackend('right')
     ]);
   } else {
-    await fetchFileList(sourceSide);
+    await fetchFileList(sourceSide, savedFile);
     loadConfigFromBackend(sourceSide);
   }
 }
-async function fetchFileList(side) {
+
+async function fetchFileList(side, preferredFile = null) {
   const isLeft = side === 'left';
   const dateVal = document.getElementById(isLeft ? 'dateLeft' : 'dateRight').value;
   const typeVal = document.getElementById(isLeft ? 'typeLeft' : 'typeRight').value;
@@ -546,7 +536,7 @@ async function fetchFileList(side) {
   const deviceVal = document.getElementById(isLeft ? 'deviceLeft' : 'deviceRight').value;
   const fileSelect = document.getElementById(isLeft ? 'fileLeft' : 'fileRight');
 
-  // Если хотя бы одно обязательное поле не выбрано — сбрасываем список файлов на заголовок
+  // Если хотя бы одно обязательное поле не выбрано — сбрасываем список
   if (!dateVal || !regionVal || !deviceVal) {
     fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
     return;
@@ -561,15 +551,15 @@ async function fetchFileList(side) {
 
     if (!response.ok) {
       fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
+      updateEditorModel(side, '');
       return;
     }
 
     const files = await response.json();
-    const currentValue = fileSelect.value;
-
     fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
 
     if (!Array.isArray(files) || files.length === 0) {
+      updateEditorModel(side, '');
       return;
     }
 
@@ -580,12 +570,76 @@ async function fetchFileList(side) {
       fileSelect.appendChild(opt);
     });
 
-    if (files.includes(currentValue)) {
-      fileSelect.value = currentValue;
+    // Пытаемся восстановить выбор файла (если он есть за эту дату) или оставляем текущий
+    const targetFile = preferredFile || fileSelect.value;
+    if (targetFile && files.includes(targetFile)) {
+      fileSelect.value = targetFile;
+      loadConfigFromBackend(side);
+    } else {
+      fileSelect.value = "";
+      updateEditorModel(side, '');
+    }
+
+  } catch (e) {
+    console.error(`[DEBUG ${side.toUpperCase()}] Ошибка:`, e);
+    fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
+    updateEditorModel(side, '');
+  }
+}
+
+async function fetchFileList(side, preferredFile = null) {
+  const isLeft = side === 'left';
+  const dateVal = document.getElementById(isLeft ? 'dateLeft' : 'dateRight').value;
+  const typeVal = document.getElementById(isLeft ? 'typeLeft' : 'typeRight').value;
+  const regionVal = document.getElementById(isLeft ? 'regionLeft' : 'regionRight').value;
+  const deviceVal = document.getElementById(isLeft ? 'deviceLeft' : 'deviceRight').value;
+  const fileSelect = document.getElementById(isLeft ? 'fileLeft' : 'fileRight');
+
+  if (!dateVal || !regionVal || !deviceVal) {
+    fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
+    return;
+  }
+
+  const [year, monthStr, dayStr] = dateVal.split('-');
+  const dirPath = `/archive/${year}/${monthStr}/${dayStr}/${typeVal}/${regionVal}/${deviceVal}`;
+  const requestUrl = `/api/devices?path=${encodeURIComponent(dirPath)}`;
+
+  try {
+    const response = await fetch(requestUrl);
+
+    if (!response.ok) {
+      fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
+      updateEditorModel(side, '');
+      return;
+    }
+
+    const files = await response.json();
+    fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
+
+    if (!Array.isArray(files) || files.length === 0) {
+      updateEditorModel(side, '');
+      return;
+    }
+
+    files.forEach(file => {
+      const opt = document.createElement('option');
+      opt.value = file;
+      opt.textContent = file;
+      fileSelect.appendChild(opt);
+    });
+
+    // Если файл, который был выбран до смены даты, присутствует на новой дате — выбираем его
+    if (preferredFile && files.includes(preferredFile)) {
+      fileSelect.value = preferredFile;
+      loadConfigFromBackend(side); // Сразу автоматически загружаем конфиг
+    } else {
+      fileSelect.value = "";
+      updateEditorModel(side, '');
     }
   } catch (e) {
     console.error(`[DEBUG ${side.toUpperCase()}] Ошибка:`, e);
     fileSelect.innerHTML = '<option value="" disabled selected>Конфигурация</option>';
+    updateEditorModel(side, '');
   }
 }
 
@@ -730,7 +784,12 @@ async function updateDynamicDropdowns(side) {
   const regionSelect = document.getElementById(isLeft ? 'regionLeft' : 'regionRight');
   const deviceSelect = document.getElementById(isLeft ? 'deviceLeft' : 'deviceRight');
 
-  if (!dateVal) return;
+  // Если дата или тип (УЭС) еще не выбраны — очищаем регионы и платформы, ничего не запрашиваем
+  if (!dateVal || !typeVal) {
+    regionSelect.innerHTML = '<option value="" disabled selected>МРФ</option>';
+    deviceSelect.innerHTML = '<option value="" disabled selected>Платформа</option>';
+    return;
+  }
 
   const [year, month, day] = dateVal.split('-');
 
@@ -738,14 +797,12 @@ async function updateDynamicDropdowns(side) {
   const typeDirPath = `/archive/${year}/${month}/${day}/${typeVal}`;
   await fetchFolderList(typeDirPath, regionSelect, 'МРФ');
 
-  // Шаг Б: Если регион выбран, подгружаем доступные Платформы/ОС для /archive/YYYY/MM/DD/Type/Region
+  // Шаг Б: Если регион выбран, подгружаем доступные Платформы/ОС
   const regionVal = regionSelect.value;
   if (regionVal) {
     const regionDirPath = `${typeDirPath}/${regionVal}`;
     await fetchFolderList(regionDirPath, deviceSelect, 'Платформа');
-  }
-  else {
-    // Явно возвращаем плейсхолдер "Платформа", если регион пустой или сбросился
+  } else {
     deviceSelect.innerHTML = '<option value="" disabled selected>Платформа</option>';
   }
 }

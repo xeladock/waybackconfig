@@ -136,5 +136,5 @@ def api_config(path: str = ""):
 if __name__ == '__main__':
     import uvicorn
 
-    print(f"Запуск FastAPI сервера через Uvicorn. Архив: {BASE_ARCHIVE_DIR}")
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
+    # print(f"Запуск FastAPI сервера через Uvicorn. Архив: {BASE_ARCHIVE_DIR}")
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, workers=1,access_log=False)
