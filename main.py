@@ -1,10 +1,19 @@
 import os
 import json
+import sys
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 BASE_ARCHIVE_DIR = '/archive'
+
+if getattr(sys, 'frozen', False):
+    script_dir = os.path.dirname(sys.executable)
+else:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# print("Путь к папке со скриптом:", script_dir)
 
 app = FastAPI(title="WaybackConfig", version="0.19")
 
@@ -31,7 +40,7 @@ async def liveness():
     """Проверка: жив ли процесс Python"""
     return {"status": "ok"}
 
-@app.get("/healthz/ready", summary="Kubernetes Liveness Probe")
+@app.get("/healthz/ready", summary="K8s Liveness Probe")
 def liveness_probe():
     """Эндпоинт для k8s liveness probe и фронтенд-поллинга."""
     if not check_archive_health():
@@ -79,11 +88,12 @@ def serve_index():
         """
         return HTMLResponse(content=error_html, status_code=503)
 
-    index_path = "index.html"
+    index_path = os.path.join(script_dir,"index.html")
     if os.path.exists(index_path):
         with open(index_path, "r", encoding="utf-8") as f:
             return f.read()
-    return "index.html не найден", 404
+
+    return HTMLResponse(content="index.html не найден", status_code=404)
 
 
 @app.get('/api/folders')
@@ -141,4 +151,4 @@ if __name__ == '__main__':
     import uvicorn
 
     # print(f"Запуск FastAPI сервера через Uvicorn. Архив: {BASE_ARCHIVE_DIR}")
-    uvicorn.run(app, host="0.0.0.0", port=8001, workers=1,access_log=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, workers=1,access_log=False)
