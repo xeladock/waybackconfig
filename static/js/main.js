@@ -651,16 +651,13 @@ function downloadConfig(side) {
   if (!fileName) {
     const deviceName = deviceSelect && deviceSelect.value ? deviceSelect.value : 'config';
     fileName = `${deviceName}_${isLeft ? 'left' : 'right'}.txt`;
-<!--  } else {-->
-<!--    // Если у файла нет расширения, добавляем .txt-->
-<!--    if (!fileName.includes('.')) {-->
-<!--      fileName += '.txt';-->
-<!--    }-->
   }
 
-  // Если дата выбрана, добавляем её в начало имени файла: YYYY-MM-DD_filename.txt
+  // Если дата выбрана, преобразуем её в формат DD-MM-YYYY и добавляем в начало
   if (dateVal) {
-    fileName = `${dateVal}_${fileName}`;
+    const [year, month, day] = dateVal.split('-');
+    const formattedDate = `${day}-${month}-${year}`;
+    fileName = `${formattedDate}_${fileName}`;
   }
 
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -688,7 +685,8 @@ function downloadDiff() {
   if (!leftContent.trim() && !rightContent.trim()) {
     alert('Обе панели пусты. Нечего сравнивать!');
     return;
-      }
+  }
+
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -698,17 +696,16 @@ function downloadDiff() {
   const seconds = String(now.getSeconds()).padStart(2, '0');
   const currentTime = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
 
-  // 1. Считываем значения всех селектов и полей ввода
   const getValue = (id, fallback) => {
     const el = document.getElementById(id);
     return el && el.value ? el.value : fallback;
   };
 
   const formatDate = (rawDate) => {
-  if (!rawDate || !rawDate.includes('-')) return rawDate;
-  const [year, month, day] = rawDate.split('-');
-  return `${day}-${month}-${year}`;
-};
+    if (!rawDate || !rawDate.includes('-')) return rawDate;
+    const [year, month, day] = rawDate.split('-');
+    return `${day}-${month}-${year}`;
+  };
 
   const dateL = formatDate(getValue('dateLeft', 'NoDate_L'));
   const typeL = getValue('typeLeft', 'NoType_L');
@@ -722,39 +719,71 @@ function downloadDiff() {
   const deviceR = getValue('deviceRight', 'NoDevice_R');
   const fileR = getValue('fileRight', 'NoFile_R');
 
-  // Формируем первую строку заголовка со всеми выбранными параметрами
-  let diffOutput = `DIff: '(L) ${dateL} УЭС${typeL} ${regionL} ${fileL}' between '(R) ${dateR} УЭС${typeR} ${regionR} ${fileR}'\n----\n\n`;
+  let diffOutput = `Diff: '(L) ${dateL} УЭС${typeL} ${regionL} ${fileL}' between '(R) ${dateR} УЭС${typeR} ${regionR} ${fileR}'\n----\n\n`;
 
-  // 2. Построчно сравниваем конфиги
   const leftLines = leftContent.split(/\r?\n/);
   const rightLines = rightContent.split(/\r?\n/);
-  const maxLines = Math.max(leftLines.length, rightLines.length);
+
+  // Получаем точные изменения от Monaco Editor
+  const lineChanges = diffEditor.getLineChanges();
+
+  if (!lineChanges || lineChanges.length === 0) {
+    alert('Конфигурации идентичны!');
+    return;
+  }
 
   let diffCount = 0;
 
-  for (let i = 0; i < maxLines; i++) {
-    const lineL = leftLines[i] !== undefined ? leftLines[i] : '';
-    const lineR = rightLines[i] !== undefined ? rightLines[i] : '';
+  lineChanges.forEach(change => {
+    // change содержит информацию о блоках:
+    // originalStartLineNumber, originalEndLineNumber (слева)
+    // modifiedStartLineNumber, modifiedEndLineNumber (справа)
 
-    // Если строки отличаются
-    if (lineL !== lineR) {
+    const origStart = change.originalStartLineNumber;
+    const origEnd = change.originalEndLineNumber === 0 ? origStart - 1 : change.originalEndLineNumber;
+
+    const modStart = change.modifiedStartLineNumber;
+    const modEnd = change.modifiedEndLineNumber === 0 ? modStart - 1 : change.modifiedEndLineNumber;
+
+    const maxBlockLines = Math.max(
+      (origEnd >= origStart ? origEnd - origStart + 1 : 0),
+      (modEnd >= modStart ? modEnd - modStart + 1 : 0)
+    );
+
+    for (let i = 0; i < maxBlockLines; i++) {
       diffCount++;
-      const lineNumber = i + 1;
+      const curOrigLine = origStart + i;
+      const curModLine = modStart + i;
 
-      // Записываем номер строки и различия
-      diffOutput += `Line ${lineNumber}:\n`;
-      diffOutput += `L: ${lineL}\n`;
-      diffOutput += `R: ${lineR}\n\n`;
+      const lineL = (curOrigLine <= origEnd && leftLines[curOrigLine - 1] !== undefined) ? leftLines[curOrigLine - 1] : null;
+      const lineR = (curModLine <= modEnd && rightLines[curModLine - 1] !== undefined) ? rightLines[curModLine - 1] : null;
+
+      // Используем номер строки из правой панели (или левой, если справа пусто)
+      const displayLineNum = (curModLine <= modEnd) ? curModLine : curOrigLine;
+
+      diffOutput += `Line ${displayLineNum}:\n`;
+
+      if (lineL !== null && lineR !== null) {
+        // Классическая замена строки
+        diffOutput += `L: ${lineL}\n`;
+        diffOutput += `R: ${lineR}\n\n`;
+      } else if (lineL !== null && lineR === null) {
+        // Строка есть слева, но удалена справа
+        diffOutput += `L: ${lineL}\n`;
+        diffOutput += `R: - УДАЛЕНО -\n\n`;
+      } else if (lineL === null && lineR !== null) {
+        // Строки не было слева, добавлена справа
+        diffOutput += `L: - ОТСУСТВУЕТ -\n`;
+        diffOutput += `R: ${lineR}\n\n`;
+      }
     }
-  }
+  });
 
-  // 3. Проверка на идентичность
   if (diffCount === 0) {
     alert('Конфигурации идентичны!');
     return;
   }
 
-  // 4. Скачивание файла
   const fileName = `diff_${currentTime}.txt`;
   const blob = new Blob([diffOutput], { type: 'text/plain;charset=utf-8' });
   const downloadUrl = URL.createObjectURL(blob);
