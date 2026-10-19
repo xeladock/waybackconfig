@@ -104,7 +104,8 @@ function updateEditorModel(side, text) {
     diffEditor.updateOptions({
       lineNumbers: 'on',
       renderLineHighlight: 'all',
-      renderIndicators: true
+      renderIndicators: true,
+
     });
   } else {
     // Если один из файлов еще грузится — сохраняем чистый вид
@@ -113,10 +114,14 @@ function updateEditorModel(side, text) {
     }
     diffEditor.updateOptions({
       lineNumbers: 'off',
-      renderIndicators: false
+      renderLineHighlight: 'none',
+      renderIndicators: false,
     });
   }
 }
+
+
+
 
 function toggleTheme() {
   const html = document.documentElement;
@@ -773,7 +778,7 @@ function downloadDiff() {
         diffOutput += `R: - УДАЛЕНО -\n\n`;
       } else if (lineL === null && lineR !== null) {
         // Строки не было слева, добавлена справа
-        diffOutput += `L: - ОТСУСТВУЕТ -\n`;
+        diffOutput += `L: - ОТСУТСТВУЕТ -\n`;
         diffOutput += `R: ${lineR}\n\n`;
       }
     }
@@ -798,6 +803,54 @@ function downloadDiff() {
   URL.revokeObjectURL(downloadUrl);
 }
 
+//function jumpToDiff(direction) {
+//  if (!diffEditor) return;
+//
+//  const lineChanges = diffEditor.getLineChanges();
+//  if (!lineChanges || lineChanges.length === 0) {
+//    console.log('Различия не найдены или еще не рассчитаны');
+//    return;
+//  }
+//
+//  const modifiedEditor = diffEditor.getModifiedEditor();
+//  const position = modifiedEditor.getPosition();
+//  const currentLine = position ? position.lineNumber : 1;
+//
+//  // Извлекаем список начальных строк всех блоков изменений
+//  const diffLines = lineChanges.map(change => change.modifiedStartLineNumber).sort((a, b) => a - b);
+//
+//  let targetLine = null;
+//
+//  if (direction === 'next') {
+//    // Ищем первую строку диффа строго НИЖЕ текущей позиции
+//    targetLine = diffLines.find(line => line > currentLine);
+//    // Если дошли до конца — циклично переходим на самую первую разницу
+//    if (!targetLine) {
+//      targetLine = diffLines[0];
+//    }
+//  } else if (direction === 'prev') {
+//    // Ищем строку диффа ВЫШЕ текущей позиции
+//    const prevLines = diffLines.filter(line => line < currentLine);
+//    targetLine = prevLines.length > 0 ? prevLines[prevLines.length - 1] : diffLines[diffLines.length - 1];
+//  }
+//
+//  if (targetLine !== null) {
+//    modifiedEditor.focus();
+//
+//    // Перемещаем курсор на целевую строку
+//    modifiedEditor.setPosition({ lineNumber: targetLine, column: 1 });
+//
+//    // revealLine(lineNumber, scrollType)
+//    // 0 соответствует сопоставлению со слабым скроллом, но чтобы строка встала
+//    // РОВНО В САМЫЙ ВЕРХ экрана, используем метод revealLineInCenter или передаем тип прокрутки
+//    // В Monaco 0.40+ аргумент '0' (ScrollType.Smooth) вместе с revealLine
+//    // сдвигает строку наверх, если использовать следующий трюк с scrollTop:
+//
+//    const topPixel = modifiedEditor.getTopForLineNumber(targetLine);
+//    modifiedEditor.setScrollTop(topPixel);
+//  }
+//}
+
 function jumpToDiff(direction) {
   if (!diffEditor) return;
 
@@ -808,39 +861,50 @@ function jumpToDiff(direction) {
   }
 
   const modifiedEditor = diffEditor.getModifiedEditor();
-  const position = modifiedEditor.getPosition();
-  const currentLine = position ? position.lineNumber : 1;
 
-  // Извлекаем список начальных строк всех блоков изменений
+  // Определяем границы видимой области экрана
+  let firstVisibleLine = 1;
+  let lastVisibleLine = 1;
+
+  const visibleRanges = modifiedEditor.getVisibleRanges();
+  if (visibleRanges && visibleRanges.length > 0) {
+    firstVisibleLine = visibleRanges[0].startLineNumber;
+    lastVisibleLine = visibleRanges[visibleRanges.length - 1].endLineNumber;
+  } else {
+    const position = modifiedEditor.getPosition();
+    firstVisibleLine = position ? position.lineNumber : 1;
+    lastVisibleLine = firstVisibleLine;
+  }
+
+  // Извлекаем и сортируем список строк всех изменений
   const diffLines = lineChanges.map(change => change.modifiedStartLineNumber).sort((a, b) => a - b);
 
   let targetLine = null;
 
   if (direction === 'next') {
-    // Ищем первую строку диффа строго НИЖЕ текущей позиции
-    targetLine = diffLines.find(line => line > currentLine);
-    // Если дошли до конца — циклично переходим на самую первую разницу
-    if (!targetLine) {
-      targetLine = diffLines[0];
+    // Ищем первую разницу, которая находится СТРОГО НИЖЕ видимой области экрана
+    let index = diffLines.findIndex(line => line > lastVisibleLine);
+    if (index === -1) {
+      // Если ниже экрана больше нет разниц (дошли до конца) — циклично переходим на самую первую
+      index = 0;
     }
+    targetLine = diffLines[index];
   } else if (direction === 'prev') {
-    // Ищем строку диффа ВЫШЕ текущей позиции
-    const prevLines = diffLines.filter(line => line < currentLine);
-    targetLine = prevLines.length > 0 ? prevLines[prevLines.length - 1] : diffLines[diffLines.length - 1];
+    // Ищем все разницы, которые находятся СТРОГО ВЫШЕ видимой области экрана
+    const prevLines = diffLines.filter(line => line < firstVisibleLine);
+    if (prevLines.length > 0) {
+      targetLine = prevLines[prevLines.length - 1];
+    } else {
+      // Если выше экрана больше нет разниц (находимся в самом начале) — циклично переходим в самый конец
+      targetLine = diffLines[diffLines.length - 1];
+    }
   }
 
   if (targetLine !== null) {
     modifiedEditor.focus();
 
-    // Перемещаем курсор на целевую строку
+    // Перемещаем курсор и прокручиваем экран к целевой строке
     modifiedEditor.setPosition({ lineNumber: targetLine, column: 1 });
-
-    // revealLine(lineNumber, scrollType)
-    // 0 соответствует сопоставлению со слабым скроллом, но чтобы строка встала
-    // РОВНО В САМЫЙ ВЕРХ экрана, используем метод revealLineInCenter или передаем тип прокрутки
-    // В Monaco 0.40+ аргумент '0' (ScrollType.Smooth) вместе с revealLine
-    // сдвигает строку наверх, если использовать следующий трюк с scrollTop:
-
     const topPixel = modifiedEditor.getTopForLineNumber(targetLine);
     modifiedEditor.setScrollTop(topPixel);
   }

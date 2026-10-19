@@ -20,7 +20,7 @@
   </script>
   <script src="./static/js/loader.min.js"></script>
   <script src="./static/js/main.js"></script>
-  <style>
+<style>
       /* Отключение подсветки для ЛЕВОЙ панели */
 #editor-container.no-diff-left .monaco-diff-editor .editor.original .line-insert,
 #editor-container.no-diff-left .monaco-diff-editor .editor.original .line-delete,
@@ -53,6 +53,7 @@
       background-color: transparent !important;
       background: transparent !important;
     }
+
     /* Полное скрытие разделителя (sash) и его границ в Monaco 0.40+ */
     #editor-container .monaco-diff-editor .sash-container,
     #editor-container .monaco-diff-editor .monaco-sash,
@@ -81,26 +82,40 @@
       display: none !important;
     }
 
-  .monaco-editor .cursor {
-  display: none !important;
-}
-  #editor-container .monaco-diff-editor .monaco-editor .empty-editor-placeholder {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-style: italic;
-    color: #9ca3af; /* Серый Tailwind gray-400 */
-    font-size: 14px;
-    pointer-events: none;
-    text-align: center;
-    z-index: 10;
-  }
+    /* --- НОВЫЕ ПРАВИЛА: Убираем рамки и номера строк ТОЛЬКО когда контейнер пуст (.empty-diff) --- */
+    #editor-container.empty-diff .monaco-editor,
+    #editor-container.empty-diff .monaco-editor .overflow-guard,
+    #editor-container.empty-diff .monaco-editor-background {
+      border: none !important;
+      outline: none !important;
+    }
 
-  #editor-container.hide-cursor .monaco-editor .cursor {
-  display: none !important;
-}
+    /* Скрываем сайдбар с номерами строк, когда конфиг пустой */
+    #editor-container.empty-diff .monaco-editor .margin {
+      display: none !important;
+    }
+    /* ---------------------------------------------------------------------------------- */
 
+    .monaco-editor .cursor {
+      display: none !important;
+    }
+
+    #editor-container .monaco-diff-editor .monaco-editor .empty-editor-placeholder {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-style: italic;
+      color: #9ca3af; /* Серый Tailwind gray-400 */
+      font-size: 14px;
+      pointer-events: none;
+      text-align: center;
+      z-index: 10;
+    }
+
+    #editor-container.hide-cursor .monaco-editor .cursor {
+      display: none !important;
+    }
   </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 h-screen flex flex-col font-sans transition-colors duration-200 overflow-hidden">
@@ -172,7 +187,7 @@
 
     <!-- Правая панель (ровно 50% ширины) -->
   <div class="flex items-center space-x-2">
-      <input type="date" id="dateRight" min="2026-09-18" onchange="onDeviceChange('right')" class="w-36 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
+      <input type="date" id="dateRight" min="2026-09-23" onchange="onDeviceChange('right')" class="w-36 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
       <select id="typeRight" onchange="onTypeOrRegionChange('right', 'type')" class="w-20 bg-white dark:bg-gray-700 text-sm p-1.5 rounded border border-gray-300 dark:border-gray-600 outline-none">
       <option value="" disabled selected>УЭС</option>
       <option value="ЦОД">ЦОД</option>
